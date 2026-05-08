@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energybae — Solar Load Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #2d6a4f;
+  --green-light: #52b788;
+  --green-pale: #d8f3dc;
+  --green-dark: #1b4332;
+  --amber: #f4a261;
+  --amber-pale: #fff3e0;
+  --bg: #f8f7f2;
+  --surface: #ffffff;
+  --border: #e4e2da;
+  --text: #1a1917;
+  --muted: #6b6860;
+  --faint: #9e9c97;
+  --danger: #c0392b;
+  --danger-pale: #fff5f5;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ---- TOP NAV ---- */
+.nav {
+  background: var(--green-dark);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.nav-logo .bolt {
+  width: 28px; height: 28px;
+  background: var(--green-light);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.nav-tag {
+  font-size: 11px;
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.7);
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-weight: 400;
+}
+
+/* ---- PROGRESS BAR ---- */
+.progress-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+}
+.step-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--faint);
+  border-bottom: 2.5px solid transparent;
+  white-space: nowrap;
+  transition: all 0.2s;
+  cursor: default;
+}
+.step-tab.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+.step-tab.done {
+  color: var(--green-light);
+}
+.step-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1.5px solid currentColor;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
+.step-tab.done .step-num {
+  background: var(--green-light);
+  border-color: var(--green-light);
+  color: #fff;
+}
+.step-tab.active .step-num {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+/* ---- LAYOUT ---- */
+.main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ---- PANELS ---- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow);
+  animation: fadeUp 0.25s ease;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.panel.hidden { display: none; }
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1.25rem;
+}
+.panel-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  background: var(--green-pale);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.panel-title { font-size: 15px; font-weight: 600; }
+.panel-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ---- UPLOAD ZONE ---- */
+.upload-zone {
+  border: 2px dashed #c8c5bb;
+  border-radius: var(--radius-lg);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--green-light);
+  background: var(--green-pale);
+}
+.upload-zone svg { display: block; margin: 0 auto 14px; }
+.upload-zone h3 { font-size: 15px; font-weight: 500; color: var(--text); }
+.upload-zone p { font-size: 13px; color: var(--muted); margin-top: 5px; }
+.upload-zone .formats {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 12px;
+}
+.fmt-tag {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+}
+#fileInput { display: none; }
+
+.preview-wrap {
+  margin-top: 1rem;
+  display: none;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.preview-wrap.show { display: flex; }
+#previewImg {
+  max-width: 120px;
+  max-height: 150px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+.preview-info h4 { font-size: 13px; font-weight: 600; }
+.preview-info p { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.preview-info .change-link {
+  font-size: 12px;
+  color: var(--green);
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+/* ---- STATUS ---- */
+.status-box {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  margin-bottom: 1rem;
+}
+.status-box.show { display: flex; }
+.status-box.info { background: #e8f4fd; color: #1565c0; border: 1px solid #bbdefb; }
+.status-box.success { background: var(--green-pale); color: var(--green-dark); border: 1px solid #95d5b2; }
+.status-box.error { background: var(--danger-pale); color: var(--danger); border: 1px solid #ffcdd2; }
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- FORM FIELDS ---- */
+.section-divider {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 1.25rem 0 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.field input, .field select {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.field input:focus, .field select:focus { outline: none; border-color: var(--green-light); }
+.field input.ai-fill {
+  border-color: var(--green-light);
+  background: var(--green-pale);
+  color: var(--green-dark);
+}
+.field input.ai-fill:focus { border-color: var(--green); }
+.field .hint { font-size: 11px; color: var(--faint); }
+
+/* ---- BUTTONS ---- */
+.btn-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 1.25rem; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { background: var(--bg); border-color: #c0bdb5; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn.primary {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.btn.primary:hover { background: var(--green-dark); border-color: var(--green-dark); }
+.btn.xl { padding: 12px 24px; font-size: 14px; }
+.btn.amber {
+  background: var(--amber);
+  color: #fff;
+  border-color: var(--amber);
+}
+.btn.amber:hover { background: #e08c50; }
+
+/* ---- RESULT CARDS ---- */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 1rem 0;
+}
+.result-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+}
+.result-card.highlight {
+  background: var(--green-pale);
+  border-color: #95d5b2;
+}
+.result-val {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--green);
+  font-family: 'DM Mono', monospace;
+  line-height: 1;
+}
+.result-card.highlight .result-val { color: var(--green-dark); }
+.result-unit {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-weight: 500;
+}
+.result-label {
+  font-size: 11px;
+  color: var(--faint);
+  margin-top: 6px;
+}
+
+/* ---- ASSUMPTIONS TABLE ---- */
+.assumptions {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+.assumptions h4 {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.assumptions table { width: 100%; font-size: 12px; }
+.assumptions td { padding: 4px 0; color: var(--muted); }
+.assumptions td:last-child { text-align: right; color: var(--text); font-family: 'DM Mono', monospace; }
+.assumptions input {
+  width: 80px;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  text-align: right;
+  background: var(--surface);
+}
+.assumptions input:focus { outline: none; border-color: var(--green-light); }
+
+/* ---- API KEY SECTION ---- */
+.apikey-banner {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px;
+  color: #795548;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.apikey-banner svg { flex-shrink: 0; margin-top: 1px; }
+.apikey-banner a { color: var(--green); }
+.apikey-field {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.apikey-field input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ffe082;
+  border-radius: var(--radius);
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  background: #fff;
+}
+.apikey-field input:focus { outline: none; border-color: var(--green-light); }
+
+/* ---- FOOTER NOTE ---- */
+.footer-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--faint);
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+.footer-note a { color: var(--green); text-decoration: none; }
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 600px) {
+  .grid-2, .grid-3, .results-grid { grid-template-columns: 1fr; }
+  .main { padding: 1rem 1rem 3rem; }
+  .panel { padding: 1.25rem; }
+  .progress-bar { padding: 0 1rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-logo">
+    <div class="bolt">⚡</div>
+    <span>Energybae</span>
+  </div>
+  <span class="nav-tag">Solar Load Calculator — Gemini AI Powered</span>
+</nav>
+
+<!-- PROGRESS STEPS -->
+<div class="progress-bar">
+  <div class="step-tab active" id="tab1">
+    <div class="step-num">1</div> Upload Bill
+  </div>
+  <div class="step-tab" id="tab2">
+    <div class="step-num">2</div> Extract Data
+  </div>
+  <div class="step-tab" id="tab3">
+    <div class="step-num">3</div> Review & Calculate
+  </div>
+  <div class="step-tab" id="tab4">
+    <div class="step-num">4</div> Download Excel
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ============================================================ -->
+  <!-- PANEL: API KEY -->
+  <!-- ============================================================ -->
+  <div class="panel" id="apiPanel">
+    <div class="apikey-banner" style="background:#e8f5e9;border-color:#a5d6a7;color:#2e7d32;">
+      <svg width="18" height="18" fill="none" stroke="#2e7d32" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <div>
+        <strong>✅ Gemini AI Ready!</strong><br>
+        Powered by Google Gemini Vision AI — bill extraction works automatically. No setup needed.
+        <div id="keyStatus" style="font-size:11px;margin-top:4px;color:var(--green-dark)">✓ Gemini API connected for this session</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 1: UPLOAD -->
+  <!-- ============================================================ -->
+  <div class="panel" id="panel1">
+    <div class="panel-header">
+      <div class="panel-icon">📄</div>
+      <div>
+        <div class="panel-title">Upload Electricity Bill</div>
+        <div class="panel-sub">Supports MSEDCL, BESCOM, TPDDL and any Indian utility bill</div>
+      </div>
+    </div>
+
+    <div class="upload-zone" id="uploadZone"
+         onclick="document.getElementById('fileInput').click()"
+         ondragover="handleDrag(event)"
+         ondragleave="handleDragLeave(event)"
+         ondrop="handleDrop(event)">
+      <svg width="48" height="48" fill="none" stroke="#52b788" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75z"/>
+      </svg>
+      <h3>Drag & drop bill here, or click to browse</h3>
+      <p>Upload a photo or scanned PDF of your electricity bill</p>
+      <div class="formats">
+        <span class="fmt-tag">JPG</span>
+        <span class="fmt-tag">PNG</span>
+        <span class="fmt-tag">PDF</span>
+        <span class="fmt-tag">WEBP</span>
+      </div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*,.pdf">
+
+    <div class="preview-wrap" id="previewWrap">
+      <img id="previewImg" src="" alt="Bill preview">
+      <div class="preview-info">
+        <h4 id="previewName">—</h4>
+        <p id="previewSize">—</p>
+        <span class="change-link" onclick="document.getElementById('fileInput').click()">Change file</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary xl" id="goExtractBtn" onclick="goToExtract()" disabled>
+        Continue to AI Extraction →
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 2: EXTRACT -->
+  <!-- ============================================================ -->
+  <div class="panel hidden" id="panel2">
+    <div class="panel-header">
+      <div class="panel-icon">🤖</div>
+      <div>
+        <div class="panel-title">AI Data Extraction</div>
+        <div class="panel-sub">Gemini Vision AI reads the bill and extracts key fields automatically</div>
+      </div>
+    </div>
+
+    <div class="status-box info show" id="statusBox">
+      <div class="spinner" id="spinner" style="display:none"></div>
+      <span id="statusText">Ready to extract. Click the button below.</span>
+    </div>
+
+    <div class="status-box error" id="errorBox">
+      <span id="errorText"></span>
+    </div>
+
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;font-size:13px;color:var(--muted)">
+      <strong style="color:var(--text)">What will be extracted:</strong>
+      <ul style="margin-top:8px;padding-left:18px;line-height:2">
+        <li>Customer name, Consumer number, Meter number</li>
+        <li>Bill month, Tariff category, Address</li>
+        <li>Units consumed (kWh), Sanctioned load (kW)</li>
+        <li>Total bill amount (₹), Rate per unit</li>
+        <li>Previous reading, Current reading, Arrears</li>
+      </ul>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary xl" id="extractBtn" onclick="extractData()">
+        🔍 Extract Data from Bill
+      </button>
+      <button class="btn" onclick="skipExtraction()">Fill Manually</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 3: REVIEW & CALCULATE -->
+  <!-- ============================================================ -->
+  <div class="panel hidden" id="panel3">
+    <div class="panel-header">
+      <div class="panel-icon">✏️</div>
+      <div>
+        <div class="panel-title">Review Extracted Data</div>
+        <div class="panel-sub">Fields highlighted in green were auto-filled. You can edit any value.</div>
+      </div>
+    </div>
+
+    <!-- Customer Info -->
+    <div class="section-divider">Customer Details</div>
+    <div class="grid-2">
+      <div class="field"><label>Consumer Name</label><input id="fName" placeholder="Enter name"></div>
+      <div class="field"><label>Consumer / CA Number</label><input id="fConsNo" placeholder="Enter CA number"></div>
+    </div>
+    <div class="grid-3">
+      <div class="field"><label>Meter Number</label><input id="fMeter" placeholder="—"></div>
+      <div class="field"><label>Bill Month</label><input id="fMonth" placeholder="e.g. March 2024"></div>
+      <div class="field"><label>Tariff Category</label><input id="fTariff" placeholder="e.g. LT Residential"></div>
+    </div>
+    <div class="field" style="margin-bottom:12px">
+      <label>Address</label>
+      <input id="fAddress" placeholder="Full address from bill">
+    </div>
+
+    <!-- Consumption Data -->
+    <div class="section-divider">Consumption & Bill</div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Units Consumed (kWh)</label>
+        <input id="fUnits" type="number" placeholder="e.g. 300" oninput="calculate()">
+        <span class="hint">Monthly consumption</span>
+      </div>
+      <div class="field">
+        <label>Sanctioned Load (kW)</label>
+        <input id="fLoad" type="number" placeholder="e.g. 5" oninput="calculate()">
+        <span class="hint">Contract demand</span>
+      </div>
+      <div class="field">
+        <label>Total Bill Amount (₹)</label>
+        <input id="fAmount" type="number" placeholder="e.g. 2800" oninput="calculate()">
+        <span class="hint">Payable this month</span>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Previous Reading</label>
+        <input id="fPrevRead" type="number" placeholder="e.g. 4200">
+      </div>
+      <div class="field">
+        <label>Current Reading</label>
+        <input id="fCurrRead" type="number" placeholder="e.g. 4500">
+      </div>
+      <div class="field">
+        <label>Rate per Unit (₹/kWh)</label>
+        <input id="fRate" type="number" step="0.01" placeholder="Auto-calculated" oninput="calculate()">
+        <span class="hint">Leave blank to auto-calc</span>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>Fixed Charges (₹)</label>
+        <input id="fFixed" type="number" placeholder="e.g. 120">
+      </div>
+      <div class="field">
+        <label>Arrears / Other (₹)</label>
+        <input id="fArrears" type="number" placeholder="e.g. 0">
+      </div>
+    </div>
+
+    <!-- Solar Calc Assumptions -->
+    <div class="section-divider">Calculation Assumptions</div>
+    <div class="assumptions">
+      <h4>Editable Parameters</h4>
+      <table>
+        <tr>
+          <td>Peak Sun Hours (Maharashtra avg)</td>
+          <td><input id="aSun" type="number" value="4.5" step="0.1" oninput="calculate()"> hrs/day</td>
+        </tr>
+        <tr>
+          <td>System Cost per kWp</td>
+          <td>₹ <input id="aCost" type="number" value="65000" step="1000" oninput="calculate()"></td>
+        </tr>
+        <tr>
+          <td>Panel wattage</td>
+          <td><input id="aPanel" type="number" value="400" step="50" oninput="calculate()"> W</td>
+        </tr>
+        <tr>
+          <td>System efficiency / losses</td>
+          <td><input id="aEff" type="number" value="80" step="5" oninput="calculate()"> %</td>
+        </tr>
+        <tr>
+          <td>Annual electricity inflation</td>
+          <td><input id="aInflation" type="number" value="5" step="1" oninput="calculate()"> %/year</td>
+        </tr>
+        <tr>
+          <td>Government subsidy (PM Surya Ghar)</td>
+          <td>₹ <input id="aSubsidy" type="number" value="78000" step="1000" oninput="calculate()"></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn primary xl" onclick="goToResults()">
+        Calculate & See Results →
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 4: RESULTS & DOWNLOAD -->
+  <!-- ============================================================ -->
+  <div class="panel hidden" id="panel4">
+    <div class="panel-header">
+      <div class="panel-icon">☀️</div>
+      <div>
+        <div class="panel-title">Solar System Recommendation</div>
+        <div class="panel-sub" id="customerHeader">Based on your electricity consumption</div>
+      </div>
+    </div>
+
+    <!-- Primary Results -->
+    <div class="results-grid">
+      <div class="result-card highlight">
+        <div class="result-val" id="rSize">—</div>
+        <div class="result-unit">kWp</div>
+        <div class="result-label">Recommended System Size</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="result-val" id="rPanels">—</div>
+        <div class="result-unit">panels</div>
+        <div class="result-label">Solar Panels (400W each)</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="result-val" id="rArea">—</div>
+        <div class="result-unit">sq. ft</div>
+        <div class="result-label">Rooftop Area Needed</div>
+      </div>
+    </div>
+
+    <!-- Financial Results -->
+    <div class="section-divider">Financial Analysis</div>
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="result-val" id="rCost">—</div>
+        <div class="result-unit">₹ gross</div>
+        <div class="result-label">System Cost</div>
+      </div>
+      <div class="result-card">
+        <div class="result-val" id="rSubsidy">—</div>
+        <div class="result-unit">₹ subsidy</div>
+        <div class="result-label">Govt Subsidy (PM Surya)</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="result-val" id="rNetCost">—</div>
+        <div class="result-unit">₹ net</div>
+        <div class="result-label">Net Installation Cost</div>
+      </div>
+    </div>
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="result-val" id="rMonthSave">—</div>
+        <div class="result-unit">₹/month</div>
+        <div class="result-label">Monthly Saving</div>
+      </div>
+      <div class="result-card">
+        <div class="result-val" id="rAnnualSave">—</div>
+        <div class="result-unit">₹/year</div>
+        <div class="result-label">Annual Saving</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="result-val" id="rPayback">—</div>
+        <div class="result-unit">years</div>
+        <div class="result-label">Payback Period</div>
+      </div>
+    </div>
+    <div class="results-grid">
+      <div class="result-card">
+        <div class="result-val" id="rGen">—</div>
+        <div class="result-unit">kWh/month</div>
+        <div class="result-label">Solar Generation</div>
+      </div>
+      <div class="result-card">
+        <div class="result-val" id="rCoverage">—</div>
+        <div class="result-unit">%</div>
+        <div class="result-label">Bill Coverage</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="result-val" id="r25yr">—</div>
+        <div class="result-unit">₹ (25 yrs)</div>
+        <div class="result-label">Lifetime Total Saving</div>
+      </div>
+    </div>
+
+    <!-- CO2 Saving -->
+    <div style="background:var(--green-pale);border:1px solid #95d5b2;border-radius:var(--radius);padding:12px 16px;margin-top:12px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:24px">🌱</span>
+      <div style="font-size:13px;color:var(--green-dark)">
+        <strong>Environmental Impact:</strong>
+        This system will offset approx. <strong id="rCO2">—</strong> kg CO₂/year
+        — equivalent to planting <strong id="rTrees">—</strong> trees annually.
+      </div>
+    </div>
+
+    <!-- Download -->
+    <div class="section-divider">Export</div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;font-size:13px;color:var(--muted);margin-bottom:1rem">
+      The Excel file will contain: Customer details, bill data, solar recommendation, 
+      financial analysis, 25-year savings projection, and all assumptions used.
+    </div>
+
+    <div class="btn-row">
+      <button class="btn amber xl" onclick="downloadExcel()">
+        📥 Download Filled Excel (.xlsx)
+      </button>
+      <button class="btn" onclick="resetAll()">
+        🔄 Start New Bill
+      </button>
+      <button class="btn" onclick="goBack()">
+        ← Edit Data
+      </button>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Built for <a href="https://energybae.in" target="_blank">Energybae</a> · 
+    AI-powered by Gemini · 
+    <span id="footerCustomer"></span>
+  </div>
+
+</div><!-- end main -->
+
+<script>
+let uploadedFile = null;
+let extractedData = {};
+let calcResults = {};
+const GEMINI_API_KEY = 'AIzaSyC4a4WAGw5wwWUZIL-2fLXJc_N4VKEzhEw';
+
+/* ========== API KEY (no-op, Gemini key is built-in) ========== */
+function saveApiKey() { /* not used */ }
+
+/* ========== UPLOAD ========== */
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) handleFileSelect(file);
+});
+
+function handleFileSelect(file) {
+  uploadedFile = file;
+  document.getElementById('previewName').textContent = file.name;
+  document.getElementById('previewSize').textContent = (file.size / 1024).toFixed(1) + ' KB · ' + file.type;
+  document.getElementById('previewWrap').classList.add('show');
+
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      document.getElementById('previewImg').src = ev.target.result;
+      document.getElementById('previewImg').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    document.getElementById('previewImg').style.display = 'none';
+  }
+  document.getElementById('goExtractBtn').disabled = false;
+}
+
+function handleDrag(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.add('drag-over');
+}
+function handleDragLeave(e) {
+  document.getElementById('uploadZone').classList.remove('drag-over');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFileSelect(file);
+}
+
+/* ========== NAVIGATION ========== */
+function goToExtract() {
+  show('panel2');
+  document.getElementById('panel1').classList.add('hidden');
+  setTab(2);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goToResults() {
+  calculate();
+  show('panel4');
+  document.getElementById('panel3').classList.add('hidden');
+  setTab(4);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const name = document.getElementById('fName').value;
+  if (name) {
+    document.getElementById('customerHeader').textContent = 'Customer: ' + name;
+    document.getElementById('footerCustomer').textContent = name;
+  }
+}
+
+function goBack() {
+  show('panel3');
+  document.getElementById('panel4').classList.add('hidden');
+  setTab(3);
+}
+
+function skipExtraction() {
+  show('panel3');
+  document.getElementById('panel2').classList.add('hidden');
+  setTab(3);
+}
+
+function resetAll() {
+  uploadedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('previewWrap').classList.remove('show');
+  document.getElementById('previewImg').src = '';
+  document.getElementById('goExtractBtn').disabled = true;
+
+  ['panel2','panel3','panel4'].forEach(hide);
+  show('panel1');
+  setTab(1);
+  clearFields();
+  setStatus('Ready to extract. Click the button below.', 'info', false);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setTab(n) {
+  [1,2,3,4].forEach(i => {
+    const t = document.getElementById('tab' + i);
+    t.classList.remove('active', 'done');
+    if (i < n) t.classList.add('done');
+    if (i === n) t.classList.add('active');
+  });
+}
+
+/* ========== AI EXTRACTION (Gemini) ========== */
+async function extractData() {
+  if (!uploadedFile) return;
+
+  const btn = document.getElementById('extractBtn');
+  btn.disabled = true;
+  clearError();
+  setStatus('Uploading bill to Gemini AI...', 'info', true);
+
+  try {
+    const base64 = await toBase64(uploadedFile);
+    const isImage = uploadedFile.type.startsWith('image/');
+    const isPdf = uploadedFile.type === 'application/pdf';
+
+    if (!isImage && !isPdf) {
+      throw new Error('Unsupported file type. Please upload JPG, PNG, or PDF.');
+    }
+
+    const prompt = `You are an expert at reading Indian electricity bills from MSEDCL (Maharashtra), BESCOM, TPDDL, WBSEDCL, and other state utilities.
+
+Carefully read this electricity bill image/document and extract ALL the following fields. Respond ONLY with a valid JSON object — no markdown fences, no explanation, no extra text whatsoever.
+
+{
+  "consumer_name": "full name as printed on bill",
+  "consumer_number": "CA number or consumer number",
+  "meter_number": "meter number",
+  "bill_month": "billing month and year, e.g. March 2024",
+  "billing_period_from": "from date dd/mm/yyyy",
+  "billing_period_to": "to date dd/mm/yyyy",
+  "tariff_category": "LT Residential / LT Commercial / LT Industrial / HT etc as printed",
+  "division": "division or office name if visible",
+  "address": "full supply address from bill",
+  "previous_reading": number or null,
+  "current_reading": number or null,
+  "units_consumed": number (monthly kWh, integer),
+  "sanctioned_load": number (in kW, e.g. 5.0),
+  "bill_amount": number (total payable amount in rupees, integer),
+  "energy_charges": number or null,
+  "fixed_charges": number or null,
+  "arrears": number or null,
+  "rate_per_unit": number or null,
+  "due_date": "due date string if visible"
+}
+
+Rules:
+- All number fields MUST be numbers (not strings). Use null if not found.
+- units_consumed should be the NET units billed this month only (not cumulative)
+- bill_amount is the TOTAL amount payable (including all taxes, surcharges)
+- If a field is genuinely not visible, use null
+- Return ONLY the JSON object, nothing else`;
+
+    setStatus('Gemini is reading your bill...', 'info', true);
+
+    // Gemini 1.5 Flash API call
+    const requestBody = {
+      contents: [{
+        parts: [
+          {
+            inline_data: {
+              mime_type: uploadedFile.type,
+              data: base64
+            }
+          },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 1000
+      }
+    };
+
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      }
+    );
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error('Gemini API error ' + resp.status + ': ' + (err.error?.message || resp.statusText));
+    }
+
+    const data = await resp.json();
+    const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    const clean = text.replace(/```json|```/gi, '').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(clean);
+    } catch (e) {
+      const match = clean.match(/\{[\s\S]*\}/);
+      if (match) parsed = JSON.parse(match[0]);
+      else throw new Error('Could not parse AI response as JSON. Please try filling manually.');
+    }
+
+    extractedData = parsed;
+    fillFields(parsed);
+    setStatus('✅ Data extracted successfully! Review the fields and edit if needed.', 'success', false);
+    show('panel3');
+    document.getElementById('panel2').classList.add('hidden');
+    setTab(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  } catch (err) {
+    setStatus('Extraction failed. You can fill fields manually.', 'info', false);
+    showError('Error: ' + err.message);
+    fillFields({});
+    show('panel3');
+    document.getElementById('panel2').classList.add('hidden');
+    setTab(3);
+  }
+
+  btn.disabled = false;
+}
+
+function fillFields(d) {
+  const map = {
+    fName: d.consumer_name,
+    fConsNo: d.consumer_number,
+    fMeter: d.meter_number,
+    fMonth: d.bill_month,
+    fTariff: d.tariff_category,
+    fAddress: d.address,
+    fUnits: d.units_consumed,
+    fLoad: d.sanctioned_load,
+    fAmount: d.bill_amount,
+    fPrevRead: d.previous_reading,
+    fCurrRead: d.current_reading,
+    fRate: d.rate_per_unit,
+    fFixed: d.fixed_charges,
+    fArrears: d.arrears
+  };
+  Object.entries(map).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = (val !== null && val !== undefined) ? val : '';
+    if (val !== null && val !== undefined && val !== '') {
+      el.classList.add('ai-fill');
+    } else {
+      el.classList.remove('ai-fill');
+    }
+  });
+  calculate();
+}
+
+function clearFields() {
+  ['fName','fConsNo','fMeter','fMonth','fTariff','fAddress',
+   'fUnits','fLoad','fAmount','fPrevRead','fCurrRead','fRate','fFixed','fArrears']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.value = ''; el.classList.remove('ai-fill'); }
+    });
+}
+
+/* ========== CALCULATIONS ========== */
+function calculate() {
+  const units = parseFloat(document.getElementById('fUnits').value) || 0;
+  const amount = parseFloat(document.getElementById('fAmount').value) || 0;
+  const sun = parseFloat(document.getElementById('aSun').value) || 4.5;
+  const costPerKwp = parseFloat(document.getElementById('aCost').value) || 65000;
+  const panelW = parseFloat(document.getElementById('aPanel').value) || 400;
+  const eff = (parseFloat(document.getElementById('aEff').value) || 80) / 100;
+  const inflation = (parseFloat(document.getElementById('aInflation').value) || 5) / 100;
+  const subsidy = parseFloat(document.getElementById('aSubsidy').value) || 78000;
+
+  if (units <= 0) {
+    ['rSize','rPanels','rArea','rCost','rSubsidy','rNetCost',
+     'rMonthSave','rAnnualSave','rPayback','rGen','rCoverage','r25yr','rCO2','rTrees']
+      .forEach(id => document.getElementById(id).textContent = '—');
+    calcResults = {};
+    return;
+  }
+
+  // Core calculation
+  const dailyUnits = units / 30;
+  const rawSize = dailyUnits / (sun * eff);
+  const size = Math.ceil(rawSize * 10) / 10; // round up to nearest 0.1 kWp
+  const panels = Math.ceil((size * 1000) / panelW);
+  const area = Math.round(size * 100); // ~100 sq.ft per kWp (thumb rule)
+
+  // Generation
+  const monthlyGen = size * sun * 30 * eff;
+  const coverage = Math.min(100, Math.round((monthlyGen / units) * 100));
+
+  // Financials
+  const ratePerUnit = parseFloat(document.getElementById('fRate').value) ||
+    (units > 0 && amount > 0 ? amount / units : 8);
+  const monthSave = Math.round(Math.min(monthlyGen, units) * ratePerUnit);
+  const annualSave = monthSave * 12;
+  const grossCost = Math.round(size * costPerKwp);
+  const netCost = Math.max(0, grossCost - subsidy);
+  const payback = annualSave > 0 ? (netCost / annualSave).toFixed(1) : '—';
+
+  // 25-year saving with inflation
+  let totalSave = 0;
+  let curSave = annualSave;
+  for (let y = 1; y <= 25; y++) {
+    totalSave += curSave;
+    curSave *= (1 + inflation);
+  }
+  totalSave = Math.round(totalSave);
+
+  // CO2
+  const co2PerKwh = 0.82; // Indian grid emission factor kg/kWh
+  const annualCO2 = Math.round(size * sun * 365 * eff * co2PerKwh);
+  const trees = Math.round(annualCO2 / 21); // 1 tree absorbs ~21 kg CO2/yr
+
+  // Store results
+  calcResults = { size, panels, area, grossCost, subsidy, netCost, monthSave, annualSave,
+    payback, monthlyGen, coverage, totalSave, annualCO2, trees, ratePerUnit, units, amount };
+
+  // Display
+  const fmt = n => Math.round(n).toLocaleString('en-IN');
+  document.getElementById('rSize').textContent = size.toFixed(1);
+  document.getElementById('rPanels').textContent = panels;
+  document.getElementById('rArea').textContent = fmt(area);
+  document.getElementById('rCost').textContent = '₹' + fmt(grossCost);
+  document.getElementById('rSubsidy').textContent = '₹' + fmt(subsidy);
+  document.getElementById('rNetCost').textContent = '₹' + fmt(netCost);
+  document.getElementById('rMonthSave').textContent = '₹' + fmt(monthSave);
+  document.getElementById('rAnnualSave').textContent = '₹' + fmt(annualSave);
+  document.getElementById('rPayback').textContent = payback;
+  document.getElementById('rGen').textContent = Math.round(monthlyGen);
+  document.getElementById('rCoverage').textContent = coverage;
+  document.getElementById('r25yr').textContent = '₹' + fmt(totalSave);
+  document.getElementById('rCO2').textContent = fmt(annualCO2);
+  document.getElementById('rTrees').textContent = trees;
+}
+
+/* ========== EXCEL DOWNLOAD ========== */
+function downloadExcel() {
+  const c = calcResults;
+  const g = id => document.getElementById(id).value || '—';
+  const name = g('fName');
+  const fmt = n => isNaN(n) ? '—' : Math.round(n).toLocaleString('en-IN');
+
+  const wb = XLSX.utils.book_new();
+
+  // ---- SHEET 1: Customer & Bill Data ----
+  const wsData1 = [
+    ['ENERGYBAE — SOLAR LOAD CALCULATOR', '', '', ''],
+    ['Empowering People with Renewable Energy Solutions', '', '', ''],
+    ['www.energybae.in | energybae.co@gmail.com | +91 9112233120', '', '', ''],
+    ['', '', '', ''],
+    ['Report Generated:', new Date().toLocaleString('en-IN'), '', ''],
+    ['', '', '', ''],
+    ['━━━ SECTION A: CUSTOMER DETAILS ━━━', '', '', ''],
+    ['Consumer Name', g('fName'), '', ''],
+    ['Consumer / CA Number', g('fConsNo'), '', ''],
+    ['Meter Number', g('fMeter'), '', ''],
+    ['Address', g('fAddress'), '', ''],
+    ['Division / Circle', g('fTariff'), '', ''],
+    ['', '', '', ''],
+    ['━━━ SECTION B: BILL INFORMATION ━━━', '', '', ''],
+    ['Bill Month', g('fMonth'), '', ''],
+    ['Tariff Category', g('fTariff'), '', ''],
+    ['Previous Meter Reading', g('fPrevRead'), 'units', ''],
+    ['Current Meter Reading', g('fCurrRead'), 'units', ''],
+    ['Units Consumed (This Month)', parseFloat(g('fUnits')) || 0, 'kWh', ''],
+    ['Daily Average Consumption', c.units ? +(c.units/30).toFixed(2) : 0, 'kWh/day', ''],
+    ['Sanctioned Load', parseFloat(g('fLoad')) || 0, 'kW', ''],
+    ['', '', '', ''],
+    ['Energy Charges', parseFloat(g('fFixed')) || 0, '₹', ''],
+    ['Fixed / Demand Charges', parseFloat(g('fFixed')) || 0, '₹', ''],
+    ['Arrears / Other Charges', parseFloat(g('fArrears')) || 0, '₹', ''],
+    ['Total Bill Amount', parseFloat(g('fAmount')) || 0, '₹', ''],
+    ['Effective Rate per Unit', c.ratePerUnit ? +c.ratePerUnit.toFixed(2) : 0, '₹/kWh', ''],
+  ];
+
+  const ws1 = XLSX.utils.aoa_to_sheet(wsData1);
+  ws1['!cols'] = [{wch:36}, {wch:22}, {wch:14}, {wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws1, 'Bill Data');
+
+  // ---- SHEET 2: Solar Calculation ----
+  const wsData2 = [
+    ['ENERGYBAE — SOLAR SYSTEM RECOMMENDATION', '', '', ''],
+    ['Customer:', name, '', ''],
+    ['Bill Month:', g('fMonth'), '', ''],
+    ['', '', '', ''],
+    ['━━━ SECTION C: CALCULATION ASSUMPTIONS ━━━', '', '', ''],
+    ['Peak Sun Hours (Maharashtra avg)', parseFloat(document.getElementById('aSun').value), 'hrs/day', ''],
+    ['System Efficiency (derate factor)', parseFloat(document.getElementById('aEff').value), '%', ''],
+    ['Panel Wattage', parseFloat(document.getElementById('aPanel').value), 'Wp', ''],
+    ['Cost per kWp (installed)', parseFloat(document.getElementById('aCost').value), '₹', ''],
+    ['Government Subsidy (PM Surya Ghar)', parseFloat(document.getElementById('aSubsidy').value), '₹', ''],
+    ['Annual Electricity Tariff Inflation', parseFloat(document.getElementById('aInflation').value), '%/year', ''],
+    ['', '', '', ''],
+    ['━━━ SECTION D: SOLAR SYSTEM SIZING ━━━', '', '', ''],
+    ['Monthly Consumption', c.units || 0, 'kWh', ''],
+    ['Daily Average Consumption', c.units ? +(c.units/30).toFixed(2) : 0, 'kWh/day', ''],
+    ['Recommended System Size', c.size || 0, 'kWp', '★ KEY OUTPUT'],
+    ['Number of Solar Panels', c.panels || 0, 'nos', ''],
+    ['Rooftop Area Required', c.area || 0, 'sq. ft', ''],
+    ['Monthly Solar Generation', c.monthlyGen ? +c.monthlyGen.toFixed(1) : 0, 'kWh', ''],
+    ['Bill Coverage by Solar', c.coverage || 0, '%', ''],
+    ['', '', '', ''],
+    ['━━━ SECTION E: FINANCIAL ANALYSIS ━━━', '', '', ''],
+    ['Gross System Cost', c.grossCost || 0, '₹', ''],
+    ['Less: Government Subsidy', c.subsidy || 0, '₹', ''],
+    ['NET INSTALLATION COST', c.netCost || 0, '₹', '★ KEY OUTPUT'],
+    ['', '', '', ''],
+    ['Monthly Electricity Saving', c.monthSave || 0, '₹', ''],
+    ['Annual Electricity Saving', c.annualSave || 0, '₹', ''],
+    ['Simple Payback Period', c.payback || 0, 'years', '★ KEY OUTPUT'],
+    ['', '', '', ''],
+    ['━━━ SECTION F: LONG-TERM PROJECTION ━━━', '', '', ''],
+    ['Year', 'Annual Saving (₹)', 'Cumulative Saving (₹)', 'Net Position (₹)'],
+  ];
+
+  // 25-year table
+  const inf = (parseFloat(document.getElementById('aInflation').value) || 5) / 100;
+  let cumSave = 0;
+  let curSave = c.annualSave || 0;
+  for (let y = 1; y <= 25; y++) {
+    cumSave += curSave;
+    wsData2.push([y, Math.round(curSave), Math.round(cumSave), Math.round(cumSave - (c.netCost || 0))]);
+    curSave *= (1 + inf);
+  }
+
+  wsData2.push(['', '', '', '']);
+  wsData2.push(['25-Year Total Saving', c.totalSave || 0, '₹', '']);
+  wsData2.push(['', '', '', '']);
+  wsData2.push(['━━━ SECTION G: ENVIRONMENTAL IMPACT ━━━', '', '', '']);
+  wsData2.push(['Annual CO₂ Offset', c.annualCO2 || 0, 'kg CO₂/year', '']);
+  wsData2.push(['Equivalent Trees Planted', c.trees || 0, 'trees/year', '']);
+  wsData2.push(['', '', '', '']);
+  wsData2.push(['Note: Calculations based on Maharashtra solar irradiance. Actual results may vary by ±10-15%.', '', '', '']);
+  wsData2.push(['Site survey recommended before final installation.', '', '', '']);
+
+  const ws2 = XLSX.utils.aoa_to_sheet(wsData2);
+  ws2['!cols'] = [{wch:36}, {wch:24}, {wch:22}, {wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Solar Calculation');
+
+  // ---- SHEET 3: Summary (one-pager) ----
+  const wsData3 = [
+    ['ENERGYBAE SOLAR PROPOSAL SUMMARY', '', ''],
+    ['', '', ''],
+    ['Customer', name, ''],
+    ['Bill Month', g('fMonth'), ''],
+    ['Monthly Consumption', (c.units || 0) + ' kWh', ''],
+    ['Current Bill', '₹' + (c.amount ? Math.round(c.amount).toLocaleString('en-IN') : 0), ''],
+    ['', '', ''],
+    ['RECOMMENDED SYSTEM', '', ''],
+    ['System Size', (c.size || 0) + ' kWp', ''],
+    ['No. of Panels', (c.panels || 0) + ' panels (400W each)', ''],
+    ['Rooftop Area', (c.area || 0) + ' sq.ft', ''],
+    ['', '', ''],
+    ['INVESTMENT', '', ''],
+    ['Gross Cost', '₹' + fmt(c.grossCost), ''],
+    ['Govt Subsidy', '₹' + fmt(c.subsidy), ''],
+    ['YOUR COST', '₹' + fmt(c.netCost), ''],
+    ['', '', ''],
+    ['RETURNS', '', ''],
+    ['Monthly Saving', '₹' + fmt(c.monthSave), ''],
+    ['Annual Saving', '₹' + fmt(c.annualSave), ''],
+    ['Payback Period', c.payback + ' years', ''],
+    ['25-Year Saving', '₹' + fmt(c.totalSave), ''],
+    ['', '', ''],
+    ['Contact us to book a free site survey!', '', ''],
+    ['energybae.co@gmail.com | +91 9112233120', '', ''],
+  ];
+
+  const ws3 = XLSX.utils.aoa_to_sheet(wsData3);
+  ws3['!cols'] = [{wch:28}, {wch:24}, {wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Summary');
+
+  const safeName = name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20) || 'Customer';
+  const month = g('fMonth').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 12) || 'Bill';
+  XLSX.writeFile(wb, `Energybae_Solar_${safeName}_${month}.xlsx`);
+}
+
+/* ========== HELPERS ========== */
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+function setStatus(msg, type, loading) {
+  const box = document.getElementById('statusBox');
+  box.className = 'status-box show ' + (type || 'info');
+  document.getElementById('statusText').textContent = msg;
+  document.getElementById('spinner').style.display = loading ? 'inline-block' : 'none';
+}
+
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  document.getElementById('errorText').textContent = msg;
+  b.classList.add('show');
+}
+function clearError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+</script>
+</body>
+</html>
